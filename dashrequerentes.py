@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from google.oauth2.service_account import Credentials
 import unicodedata
 
 # Configuração da página
