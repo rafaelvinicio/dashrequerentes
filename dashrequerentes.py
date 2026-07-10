@@ -1,260 +1,454 @@
 import streamlit as st
 import pandas as pd
-import unicodedata
+from st_aggrid import AgGrid, GridOptionsBuilder
+import altair as alt
 
-# Configuração da página
-st.set_page_config(page_title="Dashboard de Inscrições", layout="wide")
+# Page configuration
+st.set_page_config(
+    page_title="Dashboard de Inscrições do Edital",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# ======= BANNER CENTRALIZADO =======
 st.markdown(
     """
-    <div style='text-align:center; margin-bottom:20px;'>
-        <img src="https://i.postimg.cc/nhM4cdnw/banner6.png" width="55%">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;600;700&display=swap');
+
+        html, body, [class*="css"] {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .block-container {
+            max-width: 1300px;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            padding-top: 1.5rem;
+            margin: 0 auto;
+        }
+
+        .centered-banner img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 12px;
+        }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(43,108,176,0.12);
+        }
+
+        .kpi-label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1;
+        }
+
+        .kpi-value.accent { color: #2b6cb0; }
+        .kpi-value.green  { color: #276749; }
+        .kpi-value.orange { color: #c05621; }
+
+        .kpi-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        /* Section title */
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            text-align: center;
+            letter-spacing: 0.5px;
+            margin: 8px 0 16px 0;
+        }
+
+        /* Divider */
+        .styled-divider {
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(43,108,176,0.25), transparent);
+            margin: 28px 0;
+        }
+
+        /* Radio buttons */
+        div[role="radiogroup"] {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        div[role="radiogroup"] label {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        /* Search input */
+        .stTextInput input {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 10px !important;
+            color: #1e293b !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 14px !important;
+            padding: 10px 16px !important;
+        }
+
+        /* AgGrid wrapper */
+        .ag-theme-material {
+            max-width: 100%;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .ag-theme-material .ag-cell {
+            white-space: normal !important;
+            word-break: break-word;
+            font-size: 14px !important;
+        }
+        .ag-theme-material .ag-header-cell-text {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 16px 0 8px 0;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        /* Status badges */
+        .badge-row {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 10px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .badge-valid   { background: rgba(39,103,73,0.08);  color: #276749; border: 1px solid rgba(39,103,73,0.25); }
+        .badge-invalid { background: rgba(192,86,33,0.08);  color: #c05621; border: 1px solid rgba(192,86,33,0.25); }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ── Banner ──────────────────────────────────────────────────────────────────
+# st.markdown(
+#     """
+#     <div class="centered-banner">
+#         <img src="https://i.postimg.cc/nhM4cdnw/banner6.png" alt="Banner" width="800">
+#     </div>
+#     """,
+#     unsafe_allow_html=True
+# )
+
+st.markdown(
+    "<h1 style='text-align:center;font-family:Space Grotesk,sans-serif;font-size:22px;"
+    "font-weight:700;color:#1e293b;margin:18px 0 4px 0;letter-spacing:0.5px;'>"
+    "📈 Dashboard de Inscrições · Edital 014/2026</h1>",
+    unsafe_allow_html=True
+)
+
+st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
+
+# ── Sidebar ──────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## ⚙️ Configurações")
+    rows_per_page = st.selectbox('Linhas por página', options=[25, 50, 100], index=0)
+
+# ── Load data ────────────────────────────────────────────────────────────────
+SPREADSHEET_ID = '1GM099ZYXAj3BdKLvVQMh01KOAPwiIyn-u-peOf7yfk8'
+EXPECTED_COLS = ['VAGA', 'INSCRITOS', 'VALIDADOS', 'INVALIDADOS']
+
+@st.cache_data(ttl=200)
+def load_data(spreadsheet_id, sheet_name):
+    try:
+        url = (
+            f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}'
+            f'/gviz/tq?tqx=out:csv&sheet={sheet_name}'
+        )
+        df = pd.read_csv(url)
+        df.columns = df.columns.str.strip()
+        for col in ['INSCRITOS', 'VALIDADOS', 'INVALIDADOS']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        if 'VAGA' in df.columns:
+            df['VAGA'] = df['VAGA'].astype(str).str.strip()
+        return df
+    except Exception as e:
+        st.error(f"Erro ao carregar '{sheet_name}': {e}")
+        return pd.DataFrame()
+
+def prepare(df, label):
+    missing = [c for c in EXPECTED_COLS if c not in df.columns]
+    if df.empty or missing:
+        if missing:
+            st.warning(f"Colunas ausentes em '{label}': {missing}")
+        return pd.DataFrame({c: [] for c in EXPECTED_COLS})
+    return (
+        df[EXPECTED_COLS]
+        .sort_values('INSCRITOS', ascending=False)
+        .reset_index(drop=True)
+    )
+
+# ── PROFESSOR: única categoria ativa nesta versão do dashboard ─────────────
+df_prof = prepare(load_data(SPREADSHEET_ID, 'dashprof'), 'dashprof')
+# Supervisor e Apoio desativados nesta versão (edital 014/2026 · somente Professor)
+# df_sup   = prepare(load_data(SPREADSHEET_ID, 'dashsup'),   'dashsup')
+# df_apoio = prepare(load_data(SPREADSHEET_ID, 'dashapoio'), 'dashapoio')
+
+def totals(df):
+    if df.empty:
+        return 0, 0, 0
+    return (
+        int(df['INSCRITOS'].sum()),
+        int(df['VALIDADOS'].sum()),
+        int(df['INVALIDADOS'].sum()),
+    )
+
+t_prof_i, t_prof_v, t_prof_x = totals(df_prof)
+
+total_i = t_prof_i
+total_v = t_prof_v
+total_x = t_prof_x
+
+# ── KPI cards ────────────────────────────────────────────────────────────────
+def kpi_card(label, value, css_class="", sub=""):
+    sub_html = f"<div class='kpi-sub'>{sub}</div>" if sub else ""
+    return f"""
+    <div class="kpi-card">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value {css_class}">{value:,}</div>
+        {sub_html}
+    </div>
+    """
+
+# Row 1 – grand totals
+st.markdown("<p class='section-title'>TOTAIS GERAIS</p>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div class="kpi-grid">
+        {kpi_card("Total de Inscritos", total_i, "accent")}
+        {kpi_card("Total Validados",    total_v, "green")}
+        {kpi_card("Total Invalidados",  total_x, "orange")}
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# Título
-st.title("📊 Dashboard de Inscrições - Análise de Dados")
+st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
 
-# ID da planilha
-SHEET_ID = "1-ffVSPaN9z9hp4wGBYfYjntmY9kToQrQwZEOu9nnEcU"
+# Row 2 – cargo (apenas Professor nesta versão do edital 014/2026)
+st.markdown("<p class='section-title'>POR CARGO</p>", unsafe_allow_html=True)
 
-def remover_acentos(texto):
-    """Remove acentos de um texto"""
-    if pd.isna(texto):
-        return texto
-    texto = str(texto)
-    nfkd = unicodedata.normalize('NFKD', texto)
-    return ''.join([c for c in nfkd if not unicodedata.combining(c)]).upper()
+col_p, _, _ = st.columns(3)
 
-@st.cache_data(ttl=300)
-def load_data():
-    """Carrega dados da Google Sheet"""
-    try:
-        from urllib.parse import quote
-
-        # URL pública da planilha com encoding correto
-        url_dados = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=DADOS"
-        url_municipios = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={quote('MUNICÍPIOS 2025')}"
-
-        # Carrega os dados
-        df_dados = pd.read_csv(url_dados)
-        df_municipios = pd.read_csv(url_municipios)
-
-        return df_dados, df_municipios
-    except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
-        return None, None
-
-# Carrega os dados
-with st.spinner("Carregando dados..."):
-    df_dados, df_municipios = load_data()
-
-if df_dados is not None and df_municipios is not None:
-
-    # Mantém apenas as colunas principais da aba de municípios
-    colunas_desejadas = ['MUNICIPIOS', 'INSCRITOS2025', 'INSCRITOS2024']
-    df_municipios = df_municipios[[col for col in colunas_desejadas if col in df_municipios.columns]].copy()
-
-    # Renomeia as colunas
-    df_municipios.rename(columns={
-        'INSCRITOS2025': 'Inscrito na Adesão 2025',
-        'INSCRITOS2024': 'Participou da Adesão 2024'
-    }, inplace=True)
-
-    # Corrige possíveis NaN e padroniza maiúsculas
-    if 'Inscrito na Adesão 2025' in df_municipios.columns:
-        df_municipios['Inscrito na Adesão 2025'] = df_municipios['Inscrito na Adesão 2025'].fillna('NÃO').str.upper()
-    if 'Participou da Adesão 2024' in df_municipios.columns:
-        df_municipios['Participou da Adesão 2024'] = df_municipios['Participou da Adesão 2024'].fillna('NÃO').str.upper()
-
-    df_municipios_status = df_municipios.copy()
-    df_filtrado = df_dados.copy()
-
-    # ======= MÉTRICAS PRINCIPAIS =======
-    st.header("📈 Visão Geral")
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("Total de Inscrições", len(df_filtrado))
-
-    with col2:
-        inscritos_2025 = (df_municipios_status['Inscrito na Adesão 2025'] == 'SIM').sum() if 'Inscrito na Adesão 2025' in df_municipios_status.columns else 0
-        st.metric("Municípios Inscritos 2025", inscritos_2025)
-
-    with col3:
-        inscritos_2024 = (df_municipios_status['Participou da Adesão 2024'] == 'SIM').sum() if 'Participou da Adesão 2024' in df_municipios_status.columns else 0
-        st.metric("Municípios Inscritos 2024", inscritos_2024)
-
-    with col4:
-        if 'Inscrito na Adesão 2025' in df_municipios_status.columns and 'Participou da Adesão 2024' in df_municipios_status.columns:
-            reinscritos = ((df_municipios_status['Inscrito na Adesão 2025'] == 'SIM') &
-                           (df_municipios_status['Participou da Adesão 2024'] == 'SIM')).sum()
-        else:
-            reinscritos = 0
-        st.metric("Reinscritos (2024→2025)", reinscritos)
-
-    # ======= TABS =======
-    tab1, tab2, tab3 = st.tabs(["📍 Por Município", "🎓 Por Curso", "📋 Dados Completos"])
-
-    with tab1:
-        st.subheader("Status de Inscrições por Município")
-
-        # ======= GRÁFICOS =======
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if 'Inscrito na Adesão 2025' in df_municipios_status.columns:
-                st.write("**Status Inscrições 2025:**")
-                status_2025 = df_municipios_status['Inscrito na Adesão 2025'].value_counts()
-                st.bar_chart(status_2025)
-
-        with col2:
-            if 'Participou da Adesão 2024' in df_municipios_status.columns:
-                st.write("**Status Inscrições 2024:**")
-                status_2024 = df_municipios_status['Participou da Adesão 2024'].value_counts()
-                st.bar_chart(status_2024)
-
-        # ======= ANÁLISE DE REINSCRIÇÃO =======
-        if 'Inscrito na Adesão 2025' in df_municipios_status.columns and 'Participou da Adesão 2024' in df_municipios_status.columns:
-            st.write("**Análise de Reinscrição:**")
-
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                apenas_2024 = ((df_municipios_status['Participou da Adesão 2024'] == 'SIM') &
-                               (df_municipios_status['Inscrito na Adesão 2025'] != 'SIM')).sum()
-                st.metric("Apenas 2024", apenas_2024)
-
-            with col_b:
-                apenas_2025 = ((df_municipios_status['Inscrito na Adesão 2025'] == 'SIM') &
-                               (df_municipios_status['Participou da Adesão 2024'] != 'SIM')).sum()
-                st.metric("Apenas 2025", apenas_2025)
-
-            with col_c:
-                ambos = ((df_municipios_status['Inscrito na Adesão 2025'] == 'SIM') &
-                         (df_municipios_status['Participou da Adesão 2024'] == 'SIM')).sum()
-                st.metric("Reinscritos", ambos)
-
-        # ======= FILTROS (agora acima da lista de municípios) =======
-        st.markdown("---")
-        st.subheader("🔍 Filtros de Municípios")
-
-        col_filtro1, col_filtro2 = st.columns(2)
-        with col_filtro1:
-            status_filtro = st.selectbox(
-                "Filtrar por Status:",
-                options=['Todos', 'Inscritos 2025', 'Inscritos 2024', 'Reinscritos (ambos)', 'Não Inscritos 2025']
-            )
-        with col_filtro2:
-            buscar_municipio = st.text_input("Buscar município:", "")
-
-        # ======= APLICA FILTROS =======
-        df_municipios_exibir = df_municipios_status.copy()
-
-        if status_filtro == 'Inscritos 2025':
-            df_municipios_exibir = df_municipios_exibir[df_municipios_exibir['Inscrito na Adesão 2025'] == 'SIM']
-        elif status_filtro == 'Inscritos 2024':
-            df_municipios_exibir = df_municipios_exibir[df_municipios_exibir['Participou da Adesão 2024'] == 'SIM']
-        elif status_filtro == 'Reinscritos (ambos)':
-            df_municipios_exibir = df_municipios_exibir[
-                (df_municipios_exibir['Inscrito na Adesão 2025'] == 'SIM') &
-                (df_municipios_exibir['Participou da Adesão 2024'] == 'SIM')
-            ]
-        elif status_filtro == 'Não Inscritos 2025':
-            df_municipios_exibir = df_municipios_exibir[df_municipios_exibir['Inscrito na Adesão 2025'] != 'SIM']
-
-        if buscar_municipio:
-            df_municipios_exibir = df_municipios_exibir[
-                df_municipios_exibir['MUNICIPIOS'].str.contains(buscar_municipio, case=False, na=False)
-            ]
-
-        # ======= TABELA DE MUNICÍPIOS =======
-        st.write(f"**Total de municípios exibidos:** {len(df_municipios_exibir)}")
-        st.dataframe(df_municipios_exibir, use_container_width=True, hide_index=True)
-
-        # ======= INSCRIÇÕES POR MUNICÍPIO =======
-        if 'MUNICÍPIO' in df_filtrado.columns:
-            st.write("**Quantidade de Inscrições por Município (2025):**")
-            inscricoes_por_mun = df_filtrado['MUNICÍPIO'].value_counts().head(20)
-            st.bar_chart(inscricoes_por_mun, horizontal=True)
-
-    # ======= TAB 2 - CURSOS =======
-    with tab2:
-        st.subheader("Análise por Curso")
-        cursos = []
-        for i in range(1, 4):
-            col_curso = f'CURSO {i}'
-            col_turno = f'TURNO {i}'
-            if col_curso in df_filtrado.columns:
-                cursos_temp = df_filtrado[[col_curso, col_turno]].dropna()
-                if len(cursos_temp) > 0:
-                    cursos.append(cursos_temp.rename(columns={col_curso: 'CURSO', col_turno: 'TURNO'}))
-
-        if cursos:
-            df_cursos = pd.concat(cursos, ignore_index=True)
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**Cursos Mais Procurados:**")
-                cursos_count = df_cursos['CURSO'].value_counts().head(15).sort_values(ascending=True)
-                st.bar_chart(cursos_count, horizontal=True)
-
-            with col2:
-                st.write("**Distribuição por Turno:**")
-                turno_count = df_cursos['TURNO'].value_counts().sort_values(ascending=True)
-                st.bar_chart(turno_count, horizontal=True)
-
-    # ======= TAB 3 - DADOS COMPLETOS =======
-    with tab3:
-        st.subheader("Tabela Completa de Dados")
-        municipio_filter = []
-        status_filter = 'Todos'
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if 'MUNICÍPIO' in df_filtrado.columns:
-                municipio_filter = st.multiselect(
-                    "Filtrar por Município:",
-                    options=sorted(df_filtrado['MUNICÍPIO'].dropna().unique()),
-                    default=[]
-                )
-        with col2:
-            status_filter = st.selectbox(
-                "Filtrar por Status:",
-                options=['Todos', 'Novos']
-            )
-
-        df_exibir = df_filtrado.copy()
-
-        if municipio_filter:
-            df_exibir = df_exibir[df_exibir['MUNICÍPIO'].isin(municipio_filter)]
-
-        if 'REINSCRITO' in df_exibir.columns and status_filter != 'Todos':
-            if status_filter == 'Reinscritos':
-                df_exibir = df_exibir[df_exibir['REINSCRITO'] == True]
-            else:
-                df_exibir = df_exibir[df_exibir['REINSCRITO'] == False]
-
-        if 'MUNICÍPIO' in df_exibir.columns:
-            colunas_ordenadas = ['MUNICÍPIO'] + [col for col in df_exibir.columns if col != 'MUNICÍPIO']
-            df_exibir = df_exibir[colunas_ordenadas]
-
-        st.write(f"**Total de registros:** {len(df_exibir)}")
-        st.dataframe(df_exibir, use_container_width=True)
-
-        csv = df_exibir.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Baixar dados como CSV",
-            data=csv,
-            file_name="inscricoes_filtradas.csv",
-            mime="text/csv"
+def cargo_block(col, label, total, valid, invalid, emoji):
+    with col:
+        st.markdown(
+            f"""
+            <div class="kpi-card" style="padding:20px 16px;">
+                <div class="kpi-label">{emoji} {label}</div>
+                <div class="kpi-value accent" style="font-size:34px;">{total:,}</div>
+                <div class="badge-row" style="margin-top:14px;">
+                    <span class="badge badge-valid">✔ {valid:,} válidos</span>
+                    <span class="badge badge-invalid">✖ {invalid:,} inv.</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
-else:
-    st.error("Não foi possível carregar os dados. Verifique se a planilha está acessível publicamente.")
-    st.info("Para tornar a planilha pública: Arquivo → Compartilhar → Qualquer pessoa com o link")
+cargo_block(col_p, "Professor", t_prof_i, t_prof_v, t_prof_x, "🎓")
 
-# Rodapé
-st.markdown("---")
-st.markdown("Dashboard criado com Streamlit | Dados atualizados a cada 5 minutos")
+st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
+
+# ── Bar chart ────────────────────────────────────────────────────────────────
+st.markdown("<p class='section-title'>DISTRIBUIÇÃO DE INSCRIÇÕES · PROFESSOR</p>", unsafe_allow_html=True)
+
+color_scale = alt.Scale(
+    domain=['Inscritos', 'Validados', 'Invalidados'],
+    range=['#3182ce', '#38a169', '#dd6b20']
+)
+
+def build_cargo_chart(inscritos, validados, invalidados):
+    """Gráfico de barras simples (sem xOffset/column) — compatível com
+    qualquer versão do Altair e sempre responsivo via width='container'."""
+    df = pd.DataFrame({
+        'Categoria': ['Inscritos', 'Validados', 'Invalidados'],
+        'Quantidade': [inscritos, validados, invalidados],
+    })
+    return (
+        alt.Chart(df)
+        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, size=36)
+        .encode(
+            x=alt.X('Categoria:N',
+                    axis=alt.Axis(labelFontSize=12, labelAngle=0, title=None, labelColor='#475569'),
+                    sort=['Inscritos', 'Validados', 'Invalidados']),
+            y=alt.Y('Quantidade:Q',
+                    axis=alt.Axis(labelFontSize=11, labelColor='#475569', gridColor='#e2e8f0'),
+                    title='Quantidade'),
+            color=alt.Color('Categoria:N', scale=color_scale, legend=None),
+            tooltip=['Categoria', 'Quantidade']
+        )
+        .properties(width='container', height=260)
+        .configure_view(strokeWidth=0)
+        .configure_axis(domainColor='#cbd5e1')
+    )
+
+# Um único gráfico central (apenas Professor), centralizado com colunas
+# laterais vazias para manter a largura equilibrada em telas grandes.
+_, chart_col_p, _ = st.columns([1, 2, 1])
+with chart_col_p:
+    st.markdown(
+        "<p style='text-align:center;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px;'>🎓 Professor</p>",
+        unsafe_allow_html=True
+    )
+    st.altair_chart(build_cargo_chart(t_prof_i, t_prof_v, t_prof_x), use_container_width=True)
+
+# Legenda compartilhada (já que o gráfico está sem legend própria)
+st.markdown(
+    """
+    <div class="badge-row" style="margin-top:6px;">
+        <span class="badge" style="background:rgba(49,130,206,0.08);color:#3182ce;border:1px solid rgba(49,130,206,0.25);">● Inscritos</span>
+        <span class="badge badge-valid">● Validados</span>
+        <span class="badge badge-invalid">● Invalidados</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
+
+# ── Tabela detalhada ─────────────────────────────────────────────────────────
+st.markdown("<p class='section-title'>DETALHAMENTO POR VAGA · PROFESSOR</p>", unsafe_allow_html=True)
+
+search_term = st.text_input('🔍  Buscar por cidade ou vaga', key='search_input')
+
+df_sel = df_prof.copy()
+
+if search_term:
+    df_sel = df_sel[
+        df_sel['VAGA'].str.contains(search_term, case=False, na=False)
+    ].reset_index(drop=True)
+
+if not df_sel.empty:
+    gb = GridOptionsBuilder.from_dataframe(df_sel)
+    gb.configure_default_column(
+        editable=False,
+        groupable=False,
+        resizable=True,
+        cellStyle={'font-size': '14px'},
+    )
+    # Coluna "Vaga": ocupa todo o espaço que sobrar (flex alto), com quebra de
+    # linha (wrapText) para nunca truncar o nome, mesmo em telas menores.
+    gb.configure_column(
+        "VAGA",
+        header_name="Vaga",
+        sortable=True,
+        filter=True,
+        flex=6,
+        minWidth=260,
+        wrapText=True,
+        autoHeight=True,
+        tooltipField="VAGA",
+        cellStyle={'font-size': '14px', 'lineHeight': '1.3', 'padding-top': '6px', 'padding-bottom': '6px'},
+    )
+    # Colunas numéricas: largura fixa (sem flex) e ampla o bastante para o
+    # cabeçalho não cortar. suppressSizeToFit trava essa largura mesmo se
+    # algum recálculo automático do grid tentar reduzir.
+    num_col_style = {'font-size': '14px', 'textAlign': 'center'}
+    gb.configure_column(
+        "INSCRITOS", header_name="Inscritos", sortable=True, filter=True,
+        width=130, minWidth=120, flex=0, suppressSizeToFit=True,
+        cellStyle=num_col_style,
+    )
+    gb.configure_column(
+        "VALIDADOS", header_name="Validados", sortable=True, filter=True,
+        width=130, minWidth=120, flex=0, suppressSizeToFit=True,
+        cellStyle=num_col_style,
+    )
+    gb.configure_column(
+        "INVALIDADOS", header_name="Invalidados", sortable=True, filter=True,
+        width=140, minWidth=130, flex=0, suppressSizeToFit=True,
+        cellStyle=num_col_style,
+    )
+    gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=rows_per_page)
+    gb.configure_grid_options(rowHeight=32, domLayout='normal', suppressHorizontalScroll=True)
+
+    AgGrid(
+        df_sel,
+        gridOptions=gb.build(),
+        enable_enterprise_modules=False,
+        height=420,
+        # IMPORTANTE: desativado. Esse parâmetro forçava o AgGrid a espremer
+        # todas as colunas (inclusive os cabeçalhos) para caber na tela,
+        # ignorando os "width"/"flex" definidos acima — era a causa do
+        # corte em "Ins...", "Vali...", "Inva...".
+        fit_columns_on_grid_load=False,
+        theme='material',
+        update_mode='MODEL_CHANGED',
+        allow_unsafe_jscode=True,
+        key='aggrid_professor'
+    )
+else:
+    st.info("Nenhum dado encontrado para os filtros selecionados.")
+
+# ── Footer ───────────────────────────────────────────────────────────────────
+st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
+st.markdown("<div class='footer'>GEECT</div>", unsafe_allow_html=True)
