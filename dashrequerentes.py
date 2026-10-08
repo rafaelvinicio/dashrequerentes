@@ -60,8 +60,13 @@ def carregar():
     c_curso = achar("Informar o curso")
     c_tipo = achar("Tipo de Matrícula")
     c_cpf = achar("Número do CPF")
+    c_data = achar("Carimbo de data")
 
     df = pd.DataFrame()
+    df["carimbo"] = (
+        pd.to_datetime(bruto[c_data], format="%d/%m/%Y %H:%M:%S", errors="coerce")
+        if c_data else pd.NaT
+    )
     df["inscrito"] = bruto[c_nome].fillna("").str.strip().str.upper()
     partes = bruto[c_curso].fillna("").str.split("/", expand=True)
     for i in range(4):
@@ -74,7 +79,17 @@ def carregar():
     df["tipo"] = bruto[c_tipo].fillna("").str.strip().str.upper() if c_tipo else ""
     df["cpf"] = bruto[c_cpf].fillna("").str.replace(r"\D", "", regex=True) if c_cpf else ""
     df = df[df["inscrito"] != ""].reset_index(drop=True)
-    return df, fonte
+
+    # Mesmo CPF (coluna F) em mais de uma inscrição: mantém só a última.
+    # "Última" = maior carimbo de data/hora; em empate, a que está mais abaixo na planilha.
+    # Linhas sem CPF não são comparadas entre si (todas são mantidas).
+    df["_ordem"] = range(len(df))
+    df = df.sort_values(["carimbo", "_ordem"], na_position="first")
+    tem_cpf = df["cpf"] != ""
+    repetida = tem_cpf & df.duplicated(subset="cpf", keep="last")
+    removidas = int(repetida.sum())
+    df = df[~repetida].sort_values("_ordem").drop(columns=["_ordem", "carimbo"]).reset_index(drop=True)
+    return df, fonte, removidas
 
 
 def tabela_html(df, colunas, centradas=(), numerar=True):
@@ -93,7 +108,7 @@ def tabela_html(df, colunas, centradas=(), numerar=True):
 
 
 try:
-    df, fonte = carregar()
+    df, fonte, removidas = carregar()
 except Exception as e:
     st.error(
         "Não foi possível ler a planilha. Verifique se ela está compartilhada como "
@@ -126,11 +141,9 @@ kpi_slot.markdown(
     unsafe_allow_html=True,
 )
 
-unicos = f.loc[f["cpf"] != "", "cpf"].nunique()
-repetidos = len(f[f["cpf"] != ""]) - unicos
-nota = f"{unicos} pessoas únicas (por CPF)"
-if repetidos:
-    nota += f" · {repetidos} inscrição(ões) repetida(s) em mais de um curso"
+nota = "Inscrições repetidas (mesmo CPF) consideradas apenas uma vez, pela última"
+if removidas:
+    nota += f" · {removidas} removida(s)"
 st.markdown(f'<div class="sub">{nota} · Fonte: {fonte}</div>', unsafe_allow_html=True)
 
 if f.empty:
